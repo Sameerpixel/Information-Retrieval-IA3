@@ -1,0 +1,5 @@
+{
+  "name": "RSJ Weight Explorer",
+  "description": "An interactive educational tool to explore the Robertson–Sparck Jones (RSJ) weight for Information Retrieval.",
+  "requestFramePermissions": []
+}
