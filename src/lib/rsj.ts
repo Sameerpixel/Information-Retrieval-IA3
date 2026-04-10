@@ -31,7 +31,8 @@ export function tokenize(text: string): string[] {
 export function calculateRSJ(
   documents: Document[],
   query: string,
-  useStopwords: boolean = true
+  useStopwords: boolean = true,
+  onlyRelevantTerms: boolean = false
 ): TermStats[] {
   const N = documents.length;
   const relevantDocs = documents.filter(d => d.isRelevant);
@@ -39,24 +40,27 @@ export function calculateRSJ(
 
   if (N === 0) return [];
 
-  // Tokenize all documents and query
-  const queryTerms = new Set(tokenize(query));
+  // Tokenize all documents
   const docTerms = documents.map(doc => new Set(tokenize(doc.content)));
 
-  // All unique terms across all documents
-  const allTerms = new Set<string>();
-  docTerms.forEach(terms => terms.forEach(t => allTerms.add(t)));
+  // Determine which terms to evaluate
+  const termsToEvaluate = new Set<string>();
+  if (onlyRelevantTerms) {
+    // Only terms that appear in at least one relevant document
+    relevantDocs.forEach(doc => {
+      tokenize(doc.content).forEach(t => termsToEvaluate.add(t));
+    });
+  } else {
+    // All unique terms across all documents
+    docTerms.forEach(terms => terms.forEach(t => termsToEvaluate.add(t)));
+  }
 
   const results: TermStats[] = [];
 
-  allTerms.forEach(term => {
+  termsToEvaluate.forEach(term => {
     // Skip if it's a stopword and toggle is on
     if (useStopwords && STOPWORDS.has(term)) return;
 
-    // Only calculate for terms in the query (standard IR practice for weighting)
-    // or all terms if the user wants to see everything. 
-    // Let's calculate for all terms but maybe highlight query terms in the UI.
-    
     let n = 0;
     let r = 0;
 
@@ -74,6 +78,9 @@ export function calculateRSJ(
     const numerator = (r + 0.5) / (R - r + 0.5);
     const denominator = (n - r + 0.5) / (N - n - R + r + 0.5);
     const weight = Math.log(numerator / denominator);
+
+    // If onlyRelevantTerms is true, we only care about terms that actually help define the document (weight > 0)
+    if (onlyRelevantTerms && weight <= 0) return;
 
     results.push({
       term,
